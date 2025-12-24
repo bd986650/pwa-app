@@ -1,0 +1,49 @@
+{
+  "name": "Список покупок",
+  "short_name": "Покупки",
+  "description": "Мобильное приложение для управления списками покупок",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#10B981",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%2310B981' width='192' height='192'/><path fill='%23ffffff' d='M96 40c-8.8 0-16 7.2-16 16v40H40c-8.8 0-16 7.2-16 16v40c0 8.8 7.2 16 16 16h112c8.8 0 16-7.2 16-16v-40c0-8.8-7.2-16-16-16h-40V56c0-8.8-7.2-16-16-16zm0 16h32v40H96V56zm-56 56h112v40H40v-40z'/></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect fill='%2310B981' width='512' height='512'/><path fill='%23ffffff' d='M256 80c-23.5 0-42.7 19.2-42.7 42.7v149.3H80c-23.5 0-42.7 19.2-42.7 42.7v106.6c0 23.5 19.2 42.7 42.7 42.7h352c23.5 0 42.7-19.2 42.7-42.7v-106.6c0-23.5-19.2-42.7-42.7-42.7h-106.6V122.7c0-23.5-19.2-42.7-42.7-42.7zm0 42.7h85.3v106.6H256V122.7zm-149.3 149.3h298.6v106.6H106.7v-106.6z'/></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "shopping"],
+  "screenshots": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 540 720'><rect fill='%23ffffff' width='540' height='720'/><rect fill='%2310B981' width='540' height='60'/><text x='270' y='40' font-size='24' fill='%23ffffff' text-anchor='middle' font-weight='bold'>Мои списки</text></svg>",
+      "sizes": "540x720",
+      "type": "image/svg+xml",
+      "form_factor": "narrow"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Создать список",
+      "short_name": "Новый список",
+      "description": "Быстро создать новый список покупок",
+      "url": "/create-list",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><rect fill='%2310B981' width='96' height='96' rx='20'/><path fill='%23ffffff' d='M48 24c-1.1 0-2 .9-2 2v20h-20c-1.1 0-2 .9-2 2s.9 2 2 2h20v20c0 1.1.9 2 2 2s2-.9 2-2v-20h20c1.1 0 2-.9 2-2s-.9-2-2-2h-20v-20c0-1.1-.9-2-2-2z'/></svg>",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}
