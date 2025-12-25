@@ -38,6 +38,7 @@ model GroceryItem {
   name      String
   quantity  Int         @default(1)
   unit      String      @default("шт.")
+  category  String?
   completed Boolean     @default(false)
   listId    String
   list      GroceryList @relation(fields: [listId], references: [id], onDelete: Cascade)
@@ -45,5 +46,6 @@ model GroceryItem {
   updatedAt DateTime    @updatedAt
 
   @@index([listId])
+  @@index([category])
 }
 

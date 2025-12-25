@@ -9,6 +9,7 @@ export interface CreateListData {
     name: string;
     quantity?: number;
     unit?: string;
+    category?: string;
     completed?: boolean;
   }>;
 }
@@ -22,12 +23,14 @@ export interface CreateItemData {
   name: string;
   quantity?: number;
   unit?: string;
+  category?: string;
 }
 
 export interface UpdateItemData {
   name?: string;
   quantity?: number;
   unit?: string;
+  category?: string;
   completed?: boolean;
 }
 
@@ -73,6 +76,7 @@ export class ListsService {
             name: item.name,
             quantity: item.quantity || 1,
             unit: item.unit || 'шт.',
+            category: item.category || null,
             completed: item.completed || false,
           })),
         },
@@ -134,6 +138,7 @@ export class ListsService {
         name: data.name,
         quantity: data.quantity || 1,
         unit: data.unit || 'шт.',
+        category: data.category || null,
         listId,
       },
     });
@@ -167,6 +172,7 @@ export class ListsService {
         name: data.name,
         quantity: data.quantity,
         unit: data.unit,
+        category: data.category,
         completed: data.completed,
       },
     });
@@ -215,6 +221,18 @@ export class ListsService {
       where: { id: itemId },
       data: {
         completed: !existingItem.completed,
+      },
+    });
+  }
+
+  // Публичный метод - без проверки userId
+  async getPublicListById(id: string): Promise<ListWithItems | null> {
+    return await prisma.groceryList.findUnique({
+      where: { id },
+      include: {
+        items: {
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
   }

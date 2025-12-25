@@ -1,20 +1,51 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useLocation } from 'wouter';
-import { ArrowLeft, Plus, Trash2, CheckCircle2, Circle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, CheckCircle2, Circle, RefreshCw, Share2, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { useList } from '@/contexts/ListContext';
+import { PRODUCT_CATEGORIES, CATEGORY_EMOJIS } from '@/const';
 import { toast } from 'sonner';
 
 export default function ListDetailPage() {
   const [, setLocation] = useLocation();
-  const { currentList, addItemToList, removeItemFromList, toggleItemCompletion, isLoading, loadList } =
+  const { currentList, addItemToList, removeItemFromList, toggleItemCompletion, isLoading, isOffline, loadList } =
     useList();
 
   const [newItemName, setNewItemName] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState(1);
   const [newItemUnit, setNewItemUnit] = useState('шт.');
+  const [newItemCategory, setNewItemCategory] = useState('Без категории');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
+  // Группируем товары по категориям
+  const itemsByCategory = useMemo(() => {
+    if (!currentList?.items) {
+      return {};
+    }
+    
+    const grouped: Record<string, typeof currentList.items> = {};
+    
+    currentList.items.forEach(item => {
+      const category = item.category || 'Без категории';
+      if (!grouped[category]) {
+        grouped[category] = [];
+      }
+      grouped[category].push(item);
+    });
+    
+    return grouped;
+  }, [currentList?.items]);
+
+  // Ранние возвраты ПОСЛЕ всех хуков
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -40,10 +71,17 @@ export default function ListDetailPage() {
     }
 
     try {
-      await addItemToList(currentList.id, newItemName.trim(), newItemQuantity, newItemUnit);
+      await addItemToList(
+        currentList.id, 
+        newItemName.trim(), 
+        newItemQuantity, 
+        newItemUnit,
+        newItemCategory === 'Без категории' ? undefined : newItemCategory
+      );
       setNewItemName('');
       setNewItemQuantity(1);
       setNewItemUnit('шт.');
+      setNewItemCategory('Без категории');
     } catch (error) {
     }
   };
@@ -77,6 +115,19 @@ export default function ListDetailPage() {
     }
   };
 
+  const handleCopyShareLink = () => {
+    if (!currentList) return;
+    
+    const shareUrl = `${window.location.origin}/shared/${currentList.id}`;
+    
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      toast.success('Ссылка скопирована в буфер обмена');
+      setShareDialogOpen(false);
+    }).catch(() => {
+      toast.error('Не удалось скопировать ссылку');
+    });
+  };
+
   const completedItems = currentList.items.filter(item => item.completed).length;
   const totalItems = currentList.items.length;
   const progressPercent = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
@@ -98,6 +149,44 @@ export default function ListDetailPage() {
                 <p className="text-sm text-muted-foreground truncate">{currentList.description}</p>
               )}
             </div>
+            <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+              <DialogTrigger asChild>
+                <button
+                  className="p-2 hover:bg-secondary rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+                  title="Поделиться списком"
+                >
+                  <Share2 className="w-5 h-5" />
+                </button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Поделиться списком</DialogTitle>
+                  <DialogDescription>
+                    Скопируйте ссылку для просмотра списка. Получатели смогут только просматривать список, но не редактировать его.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex items-center space-x-2">
+                  <div className="grid flex-1 gap-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${window.location.origin}/shared/${currentList.id}`}
+                        className="w-full px-3 py-2 border border-border rounded-lg bg-secondary text-foreground text-sm focus:outline-none"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleCopyShareLink}
+                        className="bg-primary hover:bg-emerald-600 text-white"
+                      >
+                        Копировать
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
             <button
               onClick={handleRefresh}
               disabled={isRefreshing || isLoading}
@@ -107,6 +196,15 @@ export default function ListDetailPage() {
               <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
             </button>
           </div>
+
+          {isOffline && (
+            <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2">
+              <WifiOff className="w-4 h-4 text-amber-800" />
+              <p className="text-sm text-amber-800">
+                Офлайн-режим: изменения будут синхронизированы при появлении интернета
+              </p>
+            </div>
+          )}
 
           {totalItems > 0 && (
             <div className="space-y-2">
@@ -129,44 +227,64 @@ export default function ListDetailPage() {
 
       <div className="px-4 py-6 sm:px-6 pb-24">
         {totalItems > 0 && (
-          <div className="space-y-2 mb-8">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Товары</h2>
+          <div className="space-y-6 mb-8">
+            <h2 className="text-lg font-semibold text-foreground">Товары</h2>
 
+            {/* Активные товары (не куплены), сгруппированные по категориям */}
             {currentList.items.filter(item => !item.completed).length > 0 && (
-              <div className="space-y-2">
-                {currentList.items
-                  .filter(item => !item.completed)
-                  .map(item => (
-                    <div
-                      key={item.id}
-                      className="flex items-center gap-3 p-4 bg-white border border-border rounded-lg hover:shadow-sm transition-shadow"
-                    >
-                      <button
-                        onClick={() => handleToggleItem(item.id)}
-                        className="flex-shrink-0 text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        <Circle className="w-6 h-6" />
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground">{item.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {item.quantity} {item.unit}
-                        </p>
+              <div className="space-y-4">
+                {Object.entries(itemsByCategory)
+                  .filter(([_, items]) => items.some(item => !item.completed))
+                  .map(([category, items]) => {
+                    const activeItems = items.filter(item => !item.completed);
+                    if (activeItems.length === 0) return null;
+                    
+                    const emoji = CATEGORY_EMOJIS[category] || '📦';
+                    
+                    return (
+                      <div key={category} className="space-y-2">
+                        <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                          <span>{emoji}</span>
+                          <span>{category}</span>
+                          <span className="text-xs">({activeItems.length})</span>
+                        </h3>
+                        <div className="space-y-2">
+                          {activeItems.map(item => (
+                            <div
+                              key={item.id}
+                              className="flex items-center gap-3 p-4 bg-white border border-border rounded-lg hover:shadow-sm transition-shadow"
+                            >
+                              <button
+                                onClick={() => handleToggleItem(item.id)}
+                                className="flex-shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                              >
+                                <Circle className="w-6 h-6" />
+                              </button>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-foreground">{item.name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {item.quantity} {item.unit}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => handleDeleteItem(item.id)}
+                                className="flex-shrink-0 p-2 hover:bg-red-50 rounded-lg transition-colors text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <button
-                        onClick={() => handleDeleteItem(item.id)}
-                        className="flex-shrink-0 p-2 hover:bg-red-50 rounded-lg transition-colors text-muted-foreground hover:text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
               </div>
             )}
 
+            {/* Куплено товары */}
             {currentList.items.filter(item => item.completed).length > 0 && (
               <div className="space-y-2 mt-6">
-                <h3 className="text-sm font-medium text-muted-foreground">Куплено</h3>
+                <h3 className="text-sm font-medium text-muted-foreground">✓ Куплено</h3>
                 {currentList.items
                   .filter(item => item.completed)
                   .map(item => (
@@ -184,6 +302,7 @@ export default function ListDetailPage() {
                         <p className="font-medium text-foreground line-through">{item.name}</p>
                         <p className="text-sm text-muted-foreground">
                           {item.quantity} {item.unit}
+                          {item.category && ` • ${item.category}`}
                         </p>
                       </div>
                       <button
@@ -221,6 +340,21 @@ export default function ListDetailPage() {
               placeholder="Название товара"
               className="w-full px-3 py-2 border border-border rounded-lg bg-white text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             />
+
+            <select
+              value={newItemCategory}
+              onChange={(e) => setNewItemCategory(e.target.value)}
+              className="w-full px-3 py-2 border border-border rounded-lg bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            >
+              {PRODUCT_CATEGORIES.map(category => {
+                const emoji = CATEGORY_EMOJIS[category] || '📦';
+                return (
+                  <option key={category} value={category}>
+                    {emoji} {category}
+                  </option>
+                );
+              })}
+            </select>
 
             <div className="flex gap-2">
               <input

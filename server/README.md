@@ -121,3 +121,10 @@ npm start
 - `JWT_SECRET` - секретный ключ для JWT токенов
 - `PORT` - порт сервера (по умолчанию 3000)
 
+## Документация
+
+- [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) - Полная документация API для фронтенда
+- [CATEGORIES.md](./CATEGORIES.md) - Рекомендованные категории товаров и примеры использования
+- [FIX_DATABASE.md](./FIX_DATABASE.md) - Решение проблем с базой данных
+- [MIGRATION_CATEGORIES.md](./MIGRATION_CATEGORIES.md) - Инструкции по применению миграции для категорий
+

@@ -30,6 +30,10 @@ export const createListValidator: ValidationChain[] = [
     .optional()
     .isLength({ max: 20 })
     .withMessage('Единица измерения не должна превышать 20 символов'),
+  body('items.*.category')
+    .optional()
+    .isLength({ max: 50 })
+    .withMessage('Категория не должна превышать 50 символов'),
 ];
 
 export const updateListValidator: ValidationChain[] = [
@@ -71,6 +75,10 @@ export const createItemValidator: ValidationChain[] = [
     .optional()
     .isLength({ max: 20 })
     .withMessage('Единица измерения не должна превышать 20 символов'),
+  body('category')
+    .optional()
+    .isLength({ max: 50 })
+    .withMessage('Категория не должна превышать 50 символов'),
 ];
 
 export const updateItemValidator: ValidationChain[] = [
@@ -93,6 +101,10 @@ export const updateItemValidator: ValidationChain[] = [
     .optional()
     .isLength({ max: 20 })
     .withMessage('Единица измерения не должна превышать 20 символов'),
+  body('category')
+    .optional()
+    .isLength({ max: 50 })
+    .withMessage('Категория не должна превышать 50 символов'),
   body('completed')
     .optional()
     .isBoolean()

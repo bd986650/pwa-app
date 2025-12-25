@@ -156,5 +156,24 @@ export class ListsController {
       res.status(statusCode).json({ error: message });
     }
   }
+
+  // Публичный метод - для просмотра списка без авторизации
+  async getPublicListById(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      const list = await listsService.getPublicListById(id);
+
+      if (!list) {
+        res.status(404).json({ error: 'Список не найден' });
+        return;
+      }
+
+      res.json({ list });
+    } catch (error) {
+      console.error('Ошибка при получении публичного списка:', error);
+      res.status(500).json({ error: 'Ошибка при получении списка' });
+    }
+  }
 }
 

@@ -15,6 +15,7 @@ export interface GroceryItem {
   name: string;
   quantity: number;
   unit: string;
+  category?: string;
   completed: boolean;
   listId: string;
   createdAt: string;
@@ -202,6 +203,44 @@ class ApiClient {
     return this.request<ListResponse>(`/lists/${id}`);
   }
 
+  async getSharedList(id: string) {
+    // Получение списка без токена авторизации (публичный доступ)
+    // Используем специальный публичный endpoint: /api/lists/public/:id
+    const url = `${this.baseUrl}/lists/public/${id}`;
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    };
+
+    console.log('ApiClient.getSharedList: Запрос публичного списка:', url);
+
+    try {
+      const response = await fetch(url, {
+        headers,
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('ApiClient.getSharedList: Ошибка ответа:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('ApiClient.getSharedList: Успешный ответ:', data);
+      return data;
+    } catch (error) {
+      console.error('ApiClient.getSharedList: Ошибка:', error);
+      throw error;
+    }
+  }
+
   async createList(data: {
     name: string;
     description?: string;
@@ -209,6 +248,7 @@ class ApiClient {
       name: string;
       quantity?: number;
       unit?: string;
+      category?: string;
       completed?: boolean;
     }>;
   }) {
@@ -239,7 +279,7 @@ class ApiClient {
   }
 
   // Items
-  async addItem(listId: string, data: { name: string; quantity?: number; unit?: string }) {
+  async addItem(listId: string, data: { name: string; quantity?: number; unit?: string; category?: string }) {
     return this.request<ItemResponse>(`/lists/${listId}/items`, {
       method: 'POST',
       body: JSON.stringify(data),
@@ -249,7 +289,7 @@ class ApiClient {
   async updateItem(
     listId: string,
     itemId: string,
-    data: { name?: string; quantity?: number; unit?: string; completed?: boolean }
+    data: { name?: string; quantity?: number; unit?: string; category?: string; completed?: boolean }
   ) {
     return this.request<ItemResponse>(`/lists/${listId}/items/${itemId}`, {
       method: 'PUT',

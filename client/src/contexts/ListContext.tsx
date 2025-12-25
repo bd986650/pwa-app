@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 import { apiClient, GroceryList, GroceryItem } from '@/lib/api';
+import { localDB } from '@/lib/db';
+import { syncQueue } from '@/lib/syncQueue';
 import { toast } from 'sonner';
 
 export type { GroceryList, GroceryItem };
@@ -9,16 +11,19 @@ interface ListContextType {
   lists: GroceryList[];
   currentList: GroceryList | null;
   isLoading: boolean;
+  isOffline: boolean;
+  hasPendingSync: boolean;
   refreshLists: () => Promise<void>;
-  addList: (name: string, description?: string, items?: Array<{ name: string; quantity?: number; unit?: string }>) => Promise<GroceryList>;
+  addList: (name: string, description?: string, items?: Array<{ name: string; quantity?: number; unit?: string; category?: string }>) => Promise<GroceryList>;
   deleteList: (id: string) => Promise<void>;
   updateList: (id: string, updates: { name?: string; description?: string }) => Promise<void>;
   setCurrentList: (list: GroceryList | null) => void;
   loadList: (id: string) => Promise<void>;
-  addItemToList: (listId: string, name: string, quantity?: number, unit?: string) => Promise<void>;
+  addItemToList: (listId: string, name: string, quantity?: number, unit?: string, category?: string) => Promise<void>;
   removeItemFromList: (listId: string, itemId: string) => Promise<void>;
   toggleItemCompletion: (listId: string, itemId: string) => Promise<void>;
   updateItem: (listId: string, itemId: string, item: Partial<GroceryItem>) => Promise<void>;
+  syncPendingOperations: () => Promise<void>;
 }
 
 const ListContext = createContext<ListContextType | undefined>(undefined);
@@ -28,6 +33,59 @@ export function ListProvider({ children }: { children: ReactNode }) {
   const [lists, setLists] = useState<GroceryList[]>([]);
   const [currentList, setCurrentList] = useState<GroceryList | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [hasPendingSync, setHasPendingSync] = useState(syncQueue.hasPendingOperations());
+
+  // Синхронизировать отложенные операции
+  const syncPendingOperations = useCallback(async () => {
+    if (!syncQueue.hasPendingOperations()) {
+      return;
+    }
+
+    console.log('🔄 Начало синхронизации отложенных операций...');
+    const result = await syncQueue.syncAll();
+    
+    syncQueue.notifySyncResult(result);
+    setHasPendingSync(syncQueue.hasPendingOperations());
+    
+    // Обновляем списки после синхронизации
+    if (result.success > 0) {
+      await refreshLists();
+    }
+  }, []);
+
+  // Слушаем изменения статуса сети
+  useEffect(() => {
+    const handleOnline = async () => {
+      console.log('🌐 Интернет появился!');
+      setIsOffline(false);
+      toast.success('Подключение восстановлено');
+      
+      // Автоматически синхронизируем отложенные операции
+      if (isAuthenticated && syncQueue.hasPendingOperations()) {
+        await syncPendingOperations();
+      } else if (isAuthenticated) {
+        // Просто обновляем данные
+        await refreshLists();
+      }
+    };
+
+    const handleOffline = () => {
+      console.log('📴 Интернет пропал!');
+      setIsOffline(true);
+      toast.info('Работаем в офлайн-режиме', {
+        description: 'Изменения будут синхронизированы при появлении интернета'
+      });
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [isAuthenticated, syncPendingOperations]);
 
   const refreshLists = useCallback(async () => {
     if (!isAuthenticated) {
@@ -37,15 +95,36 @@ export function ListProvider({ children }: { children: ReactNode }) {
     
     console.log('refreshLists: Начало загрузки списков...');
     setIsLoading(true);
+    
     try {
-      // Используем fetch с no-cache для гарантии получения свежих данных
+      // Если есть интернет - загружаем с сервера
       const response = await apiClient.getLists();
-      console.log('refreshLists: Получены списки:', response.lists);
+      console.log('refreshLists: Получены списки с сервера:', response.lists.length);
       setLists(response.lists);
-      console.log('refreshLists: Списки обновлены в состоянии, количество:', response.lists.length);
+      
+      // Сохраняем в IndexedDB для офлайн-режима
+      await localDB.saveLists(response.lists);
+      console.log('refreshLists: Списки сохранены в кэш');
+      
     } catch (error) {
-      console.error('Ошибка при загрузке списков:', error);
-      toast.error('Не удалось загрузить списки');
+      console.error('Ошибка при загрузке списков с сервера:', error);
+      
+      // Если ошибка сети - загружаем из кэша
+      try {
+        const cachedLists = await localDB.getLists();
+        if (cachedLists.length > 0) {
+          console.log('refreshLists: Загружены списки из кэша:', cachedLists.length);
+          setLists(cachedLists);
+          toast.info('Показаны кэшированные данные', {
+            description: 'Обновите когда появится интернет'
+          });
+        } else {
+          toast.error('Не удалось загрузить списки');
+        }
+      } catch (dbError) {
+        console.error('Ошибка при загрузке из кэша:', dbError);
+        toast.error('Не удалось загрузить списки');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -63,12 +142,30 @@ export function ListProvider({ children }: { children: ReactNode }) {
   const loadList = async (id: string) => {
     setIsLoading(true);
     try {
+      // Сначала пытаемся загрузить с сервера
       const response = await apiClient.getList(id);
       setCurrentList(response.list);
+      
+      // Сохраняем в кэш
+      await localDB.saveList(response.list);
     } catch (error) {
-      console.error('Ошибка при загрузке списка:', error);
-      toast.error('Не удалось загрузить список');
-      throw error;
+      console.error('Ошибка при загрузке списка с сервера:', error);
+      
+      // Если ошибка - пытаемся загрузить из кэша
+      try {
+        const cachedList = await localDB.getList(id);
+        if (cachedList) {
+          setCurrentList(cachedList);
+          toast.info('Показаны кэшированные данные');
+        } else {
+          toast.error('Не удалось загрузить список');
+          throw error;
+        }
+      } catch (dbError) {
+        console.error('Ошибка при загрузке списка из кэша:', dbError);
+        toast.error('Не удалось загрузить список');
+        throw error;
+      }
     } finally {
       setIsLoading(false);
     }
@@ -77,27 +174,82 @@ export function ListProvider({ children }: { children: ReactNode }) {
   const addList = async (
     name: string,
     description?: string,
-    items?: Array<{ name: string; quantity?: number; unit?: string }>
+    items?: Array<{ name: string; quantity?: number; unit?: string; category?: string }>
   ): Promise<GroceryList> => {
+    const listData = { name, description, items };
+    
     try {
-      console.log('ListContext.addList: Начало создания списка', { name, description, items });
-      const response = await apiClient.createList({ name, description, items });
+      console.log('ListContext.addList: Начало создания списка', listData);
+      
+      // Пытаемся создать список на сервере
+      const response = await apiClient.createList(listData);
       console.log('ListContext.addList: Ответ от API:', response);
       
       const newList = response.list;
+      
+      // Сохраняем в локальный кэш
+      await localDB.saveList(newList);
+      
       setLists(prevLists => {
         const updated = [...prevLists, newList];
         console.log('ListContext.addList: Обновлено локальное состояние, списков:', updated.length);
         return updated;
       });
       
-      console.log('ListContext.addList: Обновление списков через API...');
       await refreshLists();
       console.log('ListContext.addList: Списки обновлены');
       
       return newList;
+      
     } catch (error) {
       console.error('ListContext.addList: Ошибка:', error);
+      
+      // Если офлайн - создаем список локально и добавляем в очередь
+      if (!navigator.onLine || isOffline) {
+        console.log('ListContext.addList: Офлайн-режим, создаем список локально');
+        
+        // Создаем временный список с локальным ID
+        const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const tempList: GroceryList = {
+          id: tempId,
+          name,
+          description: description || null,
+          userId: user?.id || 'temp-user',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          items: items ? items.map((item, index) => ({
+            id: `temp-item-${index}`,
+            name: item.name,
+            quantity: item.quantity || 1,
+            unit: item.unit || 'шт.',
+            completed: false,
+            listId: tempId,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          })) : []
+        };
+        
+        // Сохраняем локально
+        await localDB.saveList(tempList);
+        setLists(prevLists => [...prevLists, tempList]);
+        
+        // Добавляем в очередь синхронизации
+        syncQueue.addToQueue({
+          type: 'CREATE_LIST',
+          id: tempId,
+          data: listData,
+          timestamp: Date.now()
+        });
+        
+        setHasPendingSync(true);
+        
+        toast.success('Список создан локально', {
+          description: 'Будет синхронизирован при появлении интернета'
+        });
+        
+        return tempList;
+      }
+      
       toast.error(error instanceof Error ? error.message : 'Не удалось создать список');
       throw error;
     }
@@ -106,6 +258,7 @@ export function ListProvider({ children }: { children: ReactNode }) {
   const deleteList = async (id: string) => {
     try {
       await apiClient.deleteList(id);
+      await localDB.deleteList(id);
       await refreshLists();
       if (currentList?.id === id) {
         setCurrentList(null);
@@ -113,6 +266,28 @@ export function ListProvider({ children }: { children: ReactNode }) {
       toast.success('Список удален');
     } catch (error) {
       console.error('Ошибка при удалении списка:', error);
+      
+      // Если офлайн - добавляем в очередь
+      if (!navigator.onLine || isOffline) {
+        await localDB.deleteList(id);
+        setLists(prevLists => prevLists.filter(l => l.id !== id));
+        if (currentList?.id === id) {
+          setCurrentList(null);
+        }
+        
+        syncQueue.addToQueue({
+          type: 'DELETE_LIST',
+          id,
+          timestamp: Date.now()
+        });
+        
+        setHasPendingSync(true);
+        toast.success('Список удален локально', {
+          description: 'Будет синхронизирован при появлении интернета'
+        });
+        return;
+      }
+      
       toast.error(error instanceof Error ? error.message : 'Не удалось удалить список');
       throw error;
     }
@@ -133,9 +308,9 @@ export function ListProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addItemToList = async (listId: string, name: string, quantity: number = 1, unit: string = 'шт.') => {
+  const addItemToList = async (listId: string, name: string, quantity: number = 1, unit: string = 'шт.', category?: string) => {
     try {
-      const response = await apiClient.addItem(listId, { name, quantity, unit });
+      const response = await apiClient.addItem(listId, { name, quantity, unit, category });
       await refreshLists();
       if (currentList?.id === listId) {
         const updatedList = await apiClient.getList(listId);
@@ -205,6 +380,8 @@ export function ListProvider({ children }: { children: ReactNode }) {
         lists,
         currentList,
         isLoading,
+        isOffline,
+        hasPendingSync,
         refreshLists,
         addList,
         deleteList,
@@ -215,6 +392,7 @@ export function ListProvider({ children }: { children: ReactNode }) {
         removeItemFromList,
         toggleItemCompletion,
         updateItem,
+        syncPendingOperations,
       }}
     >
       {children}

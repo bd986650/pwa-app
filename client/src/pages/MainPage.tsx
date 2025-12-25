@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
-import { Plus, ShoppingCart, Trash2, ChevronRight, LogOut, RefreshCw } from 'lucide-react';
+import { Plus, ShoppingCart, Trash2, ChevronRight, LogOut, RefreshCw, WifiOff, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useList } from '@/contexts/ListContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,9 +10,10 @@ import { toast } from 'sonner';
 
 export default function MainPage() {
   const [, setLocation] = useLocation();
-  const { lists, deleteList, loadList, isLoading, refreshLists } = useList();
+  const { lists, deleteList, loadList, isLoading, isOffline, hasPendingSync, refreshLists, syncPendingOperations } = useList();
   const { user, logout } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     console.log('MainPage: Компонент смонтирован');
@@ -74,6 +75,16 @@ export default function MainPage() {
     }
   };
 
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      await syncPendingOperations();
+    } catch (error) {
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="sticky safe-top bg-white border-b border-border z-10">
@@ -86,6 +97,16 @@ export default function MainPage() {
                 {user && ` • ${user.name}`}
               </p>
             </div>
+            {hasPendingSync && !isOffline && (
+              <button
+                onClick={handleSync}
+                disabled={isSyncing}
+                className="p-2 hover:bg-secondary rounded-lg transition-colors text-amber-600 hover:text-amber-700 disabled:opacity-50"
+                title="Синхронизировать отложенные изменения"
+              >
+                <Upload className={`w-5 h-5 ${isSyncing ? 'animate-bounce' : ''}`} />
+              </button>
+            )}
             <button
               onClick={handleRefresh}
               disabled={isRefreshing || isLoading}
@@ -102,6 +123,35 @@ export default function MainPage() {
               <LogOut className="w-5 h-5" />
             </button>
           </div>
+          
+          {isOffline && (
+            <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2">
+              <WifiOff className="w-4 h-4 text-amber-800" />
+              <p className="text-sm text-amber-800">
+                Офлайн-режим: показаны кэшированные данные
+              </p>
+            </div>
+          )}
+          
+          {hasPendingSync && (
+            <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Upload className="w-4 h-4 text-blue-800" />
+                <p className="text-sm text-blue-800">
+                  Есть несинхронизированные изменения
+                </p>
+              </div>
+              {!isOffline && (
+                <button
+                  onClick={handleSync}
+                  disabled={isSyncing}
+                  className="text-sm font-medium text-blue-800 hover:text-blue-900 disabled:opacity-50"
+                >
+                  {isSyncing ? 'Синхронизация...' : 'Синхронизировать'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

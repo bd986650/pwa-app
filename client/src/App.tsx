@@ -13,6 +13,7 @@ import AuthPage from "./pages/AuthPage";
 import MainPage from "./pages/MainPage";
 import CreateListPage from "./pages/CreateListPage";
 import ListDetailPage from "./pages/ListDetailPage";
+import SharedListPage from "./pages/SharedListPage";
 import { useServiceWorker } from "./hooks/useServiceWorker";
 
 
@@ -21,6 +22,7 @@ function Router() {
     <Switch>
       <Route path="/" component={SplashScreen} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/shared/:id" component={SharedListPage} />
       <Route path="/main">
         <ProtectedRoute>
           <MainPage />

@@ -14,7 +14,15 @@ import {
 const router = Router();
 const listsController = new ListsController();
 
-// Все маршруты требуют аутентификации
+// ПУБЛИЧНЫЕ маршруты (БЕЗ аутентификации) - для просмотра расшаренных списков
+// Должны быть ДО router.use(authenticateToken)
+
+// Получить публичный список по ID (только для чтения, без проверки userId)
+router.get('/public/:id', validate(listIdValidator), (req, res) => {
+  listsController.getPublicListById(req, res);
+});
+
+// Все остальные маршруты требуют аутентификации
 router.use(authenticateToken);
 
 // Получить все списки пользователя

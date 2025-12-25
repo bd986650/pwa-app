@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useList } from '@/contexts/ListContext';
+import { PRODUCT_CATEGORIES, CATEGORY_EMOJIS } from '@/const';
 import { toast } from 'sonner';
 
 export default function CreateListPage() {
@@ -11,13 +12,13 @@ export default function CreateListPage() {
 
   const [listName, setListName] = useState('');
   const [listDescription, setListDescription] = useState('');
-  const [items, setItems] = useState<Array<{ name: string; quantity: number; unit: string }>>([
-    { name: '', quantity: 1, unit: 'шт.' },
+  const [items, setItems] = useState<Array<{ name: string; quantity: number; unit: string; category: string }>>([
+    { name: '', quantity: 1, unit: 'шт.', category: 'Без категории' },
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAddItem = () => {
-    setItems([...items, { name: '', quantity: 1, unit: 'шт.' }]);
+    setItems([...items, { name: '', quantity: 1, unit: 'шт.', category: 'Без категории' }]);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -26,7 +27,7 @@ export default function CreateListPage() {
 
   const handleItemChange = (
     index: number,
-    field: 'name' | 'quantity' | 'unit',
+    field: 'name' | 'quantity' | 'unit' | 'category',
     value: string | number
   ) => {
     const newItems = [...items];
@@ -54,6 +55,7 @@ export default function CreateListPage() {
           name: item.name.trim(),
           quantity: item.quantity,
           unit: item.unit,
+          category: item.category === 'Без категории' ? undefined : item.category,
         }));
 
       console.log('Создание списка:', {
@@ -131,51 +133,70 @@ export default function CreateListPage() {
           </div>
 
           {items.map((item, index) => (
-            <div key={index} className="flex gap-3 items-end bg-secondary p-4 rounded-lg">
-              <div className="flex-1">
-                <input
-                  type="text"
-                  value={item.name}
-                  onChange={(e) => handleItemChange(index, 'name', e.target.value)}
-                  placeholder="Название товара"
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-white text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
-                />
-              </div>
+            <div key={index} className="space-y-3 bg-secondary p-4 rounded-lg">
+              <div className="flex gap-3 items-start">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={item.name}
+                    onChange={(e) => handleItemChange(index, 'name', e.target.value)}
+                    placeholder="Название товара"
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-white text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
+                  />
+                </div>
 
-              <div className="w-20">
-                <input
-                  type="number"
-                  value={item.quantity}
-                  onChange={(e) =>
-                    handleItemChange(index, 'quantity', Math.max(1, parseInt(e.target.value) || 1))
-                  }
-                  min="1"
-                  className="w-full px-2 py-2 border border-border rounded-lg bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm text-center"
-                />
-              </div>
-
-              <div className="w-24">
-                <select
-                  value={item.unit}
-                  onChange={(e) => handleItemChange(index, 'unit', e.target.value)}
-                  className="w-full px-2 py-2 border border-border rounded-lg bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
+                <button
+                  type="button"
+                  onClick={() => handleRemoveItem(index)}
+                  className="p-2 hover:bg-red-50 rounded-lg transition-colors text-muted-foreground hover:text-destructive"
                 >
-                  <option>шт.</option>
-                  <option>кг</option>
-                  <option>л</option>
-                  <option>мл</option>
-                  <option>г</option>
-                  <option>упак.</option>
-                </select>
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() => handleRemoveItem(index)}
-                className="p-2 hover:bg-red-50 rounded-lg transition-colors text-muted-foreground hover:text-destructive"
+              <select
+                value={item.category}
+                onChange={(e) => handleItemChange(index, 'category', e.target.value)}
+                className="w-full px-3 py-2 border border-border rounded-lg bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
               >
-                <Trash2 className="w-4 h-4" />
-              </button>
+                {PRODUCT_CATEGORIES.map(category => {
+                  const emoji = CATEGORY_EMOJIS[category] || '📦';
+                  return (
+                    <option key={category} value={category}>
+                      {emoji} {category}
+                    </option>
+                  );
+                })}
+              </select>
+
+              <div className="flex gap-3">
+                <div className="w-20">
+                  <input
+                    type="number"
+                    value={item.quantity}
+                    onChange={(e) =>
+                      handleItemChange(index, 'quantity', Math.max(1, parseInt(e.target.value) || 1))
+                    }
+                    min="1"
+                    className="w-full px-2 py-2 border border-border rounded-lg bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm text-center"
+                  />
+                </div>
+
+                <div className="flex-1">
+                  <select
+                    value={item.unit}
+                    onChange={(e) => handleItemChange(index, 'unit', e.target.value)}
+                    className="w-full px-2 py-2 border border-border rounded-lg bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
+                  >
+                    <option>шт.</option>
+                    <option>кг</option>
+                    <option>л</option>
+                    <option>мл</option>
+                    <option>г</option>
+                    <option>упак.</option>
+                  </select>
+                </div>
+              </div>
             </div>
           ))}
 

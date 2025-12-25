@@ -53,6 +53,7 @@ interface GroceryItem {
   name: string;
   quantity: number;
   unit: string;
+  category: string | null; // Категория товара (опционально)
   completed: boolean;
   listId: string;
   createdAt: string; // ISO 8601 date string
@@ -236,7 +237,69 @@ const data = await response.json();
 
 ### 3. Списки покупок
 
-Все эндпоинты требуют аутентификации.
+#### 3.0. Получить публичный список (для расшаривания)
+
+**Endpoint:** `GET /api/lists/public/:id`
+
+**Аутентификация:** Не требуется ⭐
+
+**Описание:** Этот эндпоинт позволяет получить список в режиме "только для чтения" без авторизации. Используется для расшаривания списков с другими пользователями.
+
+**Параметры URL:**
+- `id` - ID списка (обязательный)
+
+**Успешный ответ (200):**
+```json
+{
+  "list": {
+    "id": "clx123...",
+    "name": "Список покупок на неделю",
+    "description": "Основные продукты",
+    "userId": "clx456...",
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T00:00:00.000Z",
+    "items": [
+      {
+        "id": "clx789...",
+        "name": "Молоко",
+        "quantity": 2,
+        "unit": "л",
+        "completed": false,
+        "listId": "clx123...",
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+**Ошибки:**
+- `400` - ID списка обязателен
+- `404` - Список не найден
+- `500` - Ошибка при получении списка
+
+**Пример использования:**
+```typescript
+// Без токена!
+const listId = 'clx123...';
+
+const response = await fetch(`http://localhost:3000/api/lists/public/${listId}`, {
+  method: 'GET',
+});
+
+const data = await response.json();
+const sharedList = data.list;
+```
+
+**Пример ссылки для расшаривания:**
+```
+http://localhost:3000/shared/clx123abc456...
+```
+
+---
+
+Все остальные эндпоинты требуют аутентификации.
 
 #### 3.1. Получить все списки
 
@@ -357,12 +420,14 @@ const list = data.list;
       "name": "Молоко",
       "quantity": 2,
       "unit": "л",
+      "category": "Молочные продукты",
       "completed": false
     },
     {
       "name": "Хлеб",
       "quantity": 1,
-      "unit": "шт."
+      "unit": "шт.",
+      "category": "Выпечка"
     }
   ]
 }
@@ -375,6 +440,8 @@ const list = data.list;
   - `items[].name` - опциональное, от 1 до 200 символов
   - `items[].quantity` - опциональное, положительное число (по умолчанию 1)
   - `items[].unit` - опциональное, максимум 20 символов (по умолчанию "шт.")
+  - `items[].category` - опциональное, максимум 50 символов
+  - `items[].completed` - опциональное, булево значение (по умолчанию false)
 
 **Успешный ответ (201):**
 ```json
@@ -546,7 +613,8 @@ if (response.ok) {
 {
   "name": "Яйца",
   "quantity": 10,
-  "unit": "шт."
+  "unit": "шт.",
+  "category": "Молочные продукты"
 }
 ```
 
@@ -554,6 +622,7 @@ if (response.ok) {
 - `name` - обязательное, от 1 до 200 символов
 - `quantity` - опциональное, положительное число (по умолчанию 1)
 - `unit` - опциональное, максимум 20 символов (по умолчанию "шт.")
+- `category` - опциональное, максимум 50 символов
 
 **Успешный ответ (201):**
 ```json
@@ -563,6 +632,7 @@ if (response.ok) {
     "name": "Яйца",
     "quantity": 10,
     "unit": "шт.",
+    "category": "Молочные продукты",
     "completed": false,
     "listId": "clx123...",
     "createdAt": "2024-01-01T00:00:00.000Z",
@@ -592,6 +662,7 @@ const response = await fetch(`http://localhost:3000/api/lists/${listId}/items`, 
     name: 'Яйца',
     quantity: 10,
     unit: 'шт.',
+    category: 'Молочные продукты',
   }),
 });
 
@@ -617,6 +688,7 @@ const newItem = data.item;
   "name": "Обновленное название",
   "quantity": 5,
   "unit": "кг",
+  "category": "Фрукты",
   "completed": true
 }
 ```
@@ -625,6 +697,7 @@ const newItem = data.item;
 - `name` - опциональное, от 1 до 200 символов
 - `quantity` - опциональное, положительное число
 - `unit` - опциональное, максимум 20 символов
+- `category` - опциональное, максимум 50 символов
 - `completed` - опциональное, boolean
 
 **Успешный ответ (200):**
