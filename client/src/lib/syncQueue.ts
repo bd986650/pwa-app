@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 export type PendingOperation = 
   | {
       type: 'CREATE_LIST';
-      id: string; // временный локальный ID
+      id: string;
       data: {
         name: string;
         description?: string;

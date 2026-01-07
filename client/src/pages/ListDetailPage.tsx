@@ -45,7 +45,6 @@ export default function ListDetailPage() {
     return grouped;
   }, [currentList?.items]);
 
-  // Ранние возвраты ПОСЛЕ всех хуков
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">

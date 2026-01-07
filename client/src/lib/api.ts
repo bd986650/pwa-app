@@ -1,5 +1,3 @@
-// API клиент для работы с бэкендом
-
 const BASE_URL = 'http://localhost:3000/api';
 
 // Типы данных

@@ -157,7 +157,6 @@ export class ListsController {
     }
   }
 
-  // Публичный метод - для просмотра списка без авторизации
   async getPublicListById(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;

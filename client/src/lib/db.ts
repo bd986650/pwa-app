@@ -1,4 +1,3 @@
-// IndexedDB для офлайн-режима
 import { GroceryList } from './api';
 
 const DB_NAME = 'ShopListDB';

@@ -6,10 +6,6 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
-/**
- * Компонент для защиты маршрутов
- * Перенаправляет на страницу авторизации, если пользователь не авторизован
- */
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading } = useAuth();
   const [, setLocation] = useLocation();
